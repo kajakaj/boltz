@@ -1165,6 +1165,15 @@ class Boltz1(LightningModule):
 
         if self.structure_prediction_training:
             parameters = [p for p in self.parameters() if p.requires_grad]
+
+            optimize_only_modules = self.training_args.get("optimize_only_modules", None)
+            if optimize_only_modules:
+                parameters = []
+                for name, param in self.named_parameters():
+                    for module in optimize_only_modules:
+                        if module in name:
+                            parameters.append(param)
+                            break
         else:
             parameters = [
                 p for p in self.confidence_module.parameters() if p.requires_grad
