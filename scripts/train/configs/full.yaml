@@ -161,6 +161,9 @@ model:
     lr_decay_factor: 0.95
     symmetry_correction: true
     run_confidence_sequentially: false
+    optimize_only_modules:
+      - atom_decoder
+      - atom_encoder
 
   validation_args:
     recycling_steps: 3
