@@ -115,6 +115,7 @@ class Boltz1(LightningModule):
                 self.plddt_mae[m] = MeanMetric()
         self.rmsd = MeanMetric()
         self.best_rmsd = MeanMetric()
+        self.loss_over_epoch = []
 
         self.train_confidence_loss_logger = MeanMetric()
         self.train_confidence_loss_dict_logger = nn.ModuleDict()
@@ -502,6 +503,7 @@ class Boltz1(LightningModule):
                 )
         self.log("train/loss", loss)
         self.training_log()
+        self.loss_over_epoch.append(loss)
         return loss
 
     def training_log(self):
@@ -566,6 +568,9 @@ class Boltz1(LightningModule):
         )
         for k, v in self.train_confidence_loss_dict_logger.items():
             self.log(f"train/{k}", v, prog_bar=False, on_step=False, on_epoch=True)
+        loss_average = sum(self.loss_over_epoch) / len(self.loss_over_epoch)
+        self.log("train/loss_averaged_over_epoch", loss_average, prog_bar=False, on_step=False, on_epoch=True)
+        self.loss_over_epoch.clear()
 
     def gradient_norm(self, module) -> float:
         # Only compute over parameters that are being trained
