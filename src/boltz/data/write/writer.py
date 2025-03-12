@@ -73,7 +73,7 @@ class BoltzWriter(BasePredictionWriter):
         pad_masks = prediction["masks"]
 
         # Get ranking
-        argsort = torch.argsort(prediction["confidence_score"], descending=True)
+        argsort = torch.argsort(prediction.get("confidence_score", Tensor([[0]])), descending=True)
         idx_to_rank = {idx.item(): rank for rank, idx in enumerate(argsort)}
 
         # Iterate over the records

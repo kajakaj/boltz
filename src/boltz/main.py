@@ -500,6 +500,12 @@ def cli() -> None:
     help="Whether to dump the pde into a npz file. Default is False.",
 )
 @click.option(
+    "--write_confidence_summary",
+    type=bool,
+    is_flag=True,
+    help="Whether to use confidence module. Default is False.",
+)
+@click.option(
     "--output_format",
     type=click.Choice(["pdb", "mmcif"]),
     help="The output format to use for the predictions. Default is mmcif.",
@@ -552,6 +558,7 @@ def predict(
     step_scale: float = 1.638,
     write_full_pae: bool = False,
     write_full_pde: bool = False,
+    write_confidence_summary: bool = False,
     output_format: Literal["pdb", "mmcif"] = "mmcif",
     num_workers: int = 2,
     override: bool = False,
@@ -647,7 +654,7 @@ def predict(
         "recycling_steps": recycling_steps,
         "sampling_steps": sampling_steps,
         "diffusion_samples": diffusion_samples,
-        "write_confidence_summary": True,
+        "write_confidence_summary": write_confidence_summary,
         "write_full_pae": write_full_pae,
         "write_full_pde": write_full_pde,
     }
