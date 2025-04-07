@@ -251,9 +251,12 @@ def process(args) -> None:
     structure_dir.mkdir(parents=True, exist_ok=True)
 
     # Load clusters
-    with Path(args.clusters).open("r") as f:
-        clusters: dict[str, str] = json.load(f)
-        clusters = {k.lower(): v.lower() for k, v in clusters.items()}
+    if args.clusters:
+        with Path(args.clusters).open("r") as f:
+            clusters: dict[str, str] = json.load(f)
+            clusters = {k.lower(): v.lower() for k, v in clusters.items()}
+    else:
+        clusters = {}
 
     # Load filters
     filters = [
@@ -318,7 +321,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--clusters",
         type=Path,
-        required=True,
+        required=False,
+        default=None,
         help="Path to the cluster file.",
     )
     parser.add_argument(
