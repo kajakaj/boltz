@@ -142,7 +142,7 @@ def parse(data: PDB, resource: Resource, clusters: dict) -> Target:
             ChainInfo(
                 chain_id=i,
                 chain_name=chain["name"],
-                msa_id="",  # FIX
+                msa_id=pdb_id.upper(),
                 mol_type=int(chain["mol_type"]),
                 cluster_id=clusters.get(key, -1),
                 num_residues=int(chain["res_num"]),
