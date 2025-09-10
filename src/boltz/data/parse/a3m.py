@@ -45,7 +45,7 @@ def _parse_a3m(  # noqa: C901
         # Get taxonomy, if annotated
         if line.startswith(">"):
             header = line.split()[0]
-            if taxonomy and header.startswith(">UniRef100"):
+            if taxonomy and (header.startswith(">UniRef100") or header.startswith(">tr")):
                 uniref_id = header.split("_")[1]
                 taxonomy_id = taxonomy.get(uniref_id)
                 if taxonomy_id is None:
