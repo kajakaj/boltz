@@ -1,5 +1,8 @@
 from pathlib import Path
+import pickle
+import subprocess
 
+from git import Optional
 import numpy as np
 import pytorch_lightning as pl
 import torch
@@ -11,6 +14,9 @@ from boltz.data.feature.featurizer import BoltzFeaturizer
 from boltz.data.feature.pad import pad_to_max
 from boltz.data.tokenize.boltz import BoltzTokenizer
 from boltz.data.types import MSA, Connection, Input, Manifest, Record, Structure
+from boltz.data.parse.yaml import parse_boltz_schema
+from boltz.data.parse.a3m import _parse_a3m, parse_a3m
+
 
 
 def load_input(record: Record, target_dir: Path, msa_dir: Path) -> Input:
@@ -190,6 +196,104 @@ class PredictionDataset(torch.utils.data.Dataset):
 
         """
         return len(self.manifest.records)
+    
+
+class MicPredictionDataset(torch.utils.data.Dataset):
+    """Base iterable dataset."""
+
+    def __init__(
+        self,
+        seqs: list[str],
+        ccd_path: Path,
+        uniclust_path: Path,
+        msa_path: Optional[list[Path]] = None
+    ) -> None:
+        super().__init__()
+        self.seqs = seqs
+        self.uniclust_path = uniclust_path
+        self.msa_path = msa_path
+        self.tokenizer = BoltzTokenizer()
+        self.featurizer = BoltzFeaturizer()
+        with ccd_path.open("rb") as file:
+            self.ccd = pickle.load(file)  # noqa: S301
+
+    def __getitem__(self, idx: int) -> dict:
+        """Get an item from the dataset.
+
+        Returns
+        -------
+        Dict[str, Tensor]
+            The sampled data features.
+
+        """
+        seq = self.seqs[idx]
+
+        if not self.msa_path:
+            # Generate MSA
+            hhblits_process = subprocess.run(
+                ["hhblits", "-i", "stdin", "-d", self.uniclust_path, "-v", "0", "-e", "10", "-n", "1", "-oa3m", "stdout"],
+                input=f">A|protein\n{seq.upper()}".encode(),
+                stdout=subprocess.PIPE,
+            )
+
+            # Parse MSA data
+            msa: MSA = _parse_a3m(
+                lines=hhblits_process.stdout.decode().split("\n"),
+                taxonomy=None
+            )
+        else:
+            msa: MSA = parse_a3m(self.msa_path[idx], taxonomy=None)
+
+
+        data = {
+            "sequences": [
+                {
+                    "protein": {
+                        "id": "A",
+                        "sequence": seq,
+                        "modifications": [],
+                        "msa": None, # path to msa
+                    },
+                }
+            ],
+            "bonds": [],
+            "version": 1,
+        }
+        target = parse_boltz_schema(seq, data, self.ccd)
+
+        record = target.record
+        structure = target.structure
+        input_data = Input(structure, {0:msa})
+
+        # Tokenize structure
+        tokenized = self.tokenizer.tokenize(input_data)
+       
+        # Inference specific options
+        options = record.inference_options
+        if options is None:
+            binders, pocket = None, None
+        else:
+            binders, pocket = options.binders, options.pocket
+
+        # Compute features
+        features = self.featurizer.process(
+            tokenized,
+            training=False,
+            max_atoms=None,
+            max_tokens=None,
+            max_seqs=const.max_msa_seqs,
+            pad_to_max_seqs=False,
+            symmetries={},
+            compute_symmetries=False,
+            inference_binder=binders,
+            inference_pocket=pocket,
+        )
+        
+        features["record"] = record
+        return features
+
+    def __len__(self) -> int:
+        return len(self.seqs)
 
 
 class BoltzInferenceDataModule(pl.LightningDataModule):
@@ -229,6 +333,93 @@ class BoltzInferenceDataModule(pl.LightningDataModule):
             manifest=self.manifest,
             target_dir=self.target_dir,
             msa_dir=self.msa_dir,
+        )
+        return DataLoader(
+            dataset,
+            batch_size=1,
+            num_workers=self.num_workers,
+            pin_memory=True,
+            shuffle=False,
+            collate_fn=collate,
+        )
+
+    def transfer_batch_to_device(
+        self,
+        batch: dict,
+        device: torch.device,
+        dataloader_idx: int,  # noqa: ARG002
+    ) -> dict:
+        """Transfer a batch to the given device.
+
+        Parameters
+        ----------
+        batch : Dict
+            The batch to transfer.
+        device : torch.device
+            The device to transfer to.
+        dataloader_idx : int
+            The dataloader index.
+
+        Returns
+        -------
+        np.Any
+            The transferred batch.
+
+        """
+        for key in batch:
+            if key not in [
+                "all_coords",
+                "all_resolved_mask",
+                "crop_to_all_atom_map",
+                "chain_symmetries",
+                "amino_acids_symmetries",
+                "ligand_symmetries",
+                "record",
+            ]:
+                batch[key] = batch[key].to(device)
+        return batch
+
+
+class MicBoltzInferenceDataModule(pl.LightningDataModule):
+    """DataModule for Boltz inference."""
+
+    def __init__(
+        self,
+        seqs: list[str],
+        ccd_path: Path,
+        uniclust_path: Path,
+        num_workers: int,
+        msa_path: Optional[list[Path]] = None
+    ) -> None:
+        """Initialize the DataModule.
+
+        Parameters
+        ----------
+        config : DataConfig
+            The data configuration.
+
+        """
+        super().__init__()
+        self.num_workers = num_workers
+        self.seqs = seqs
+        self.ccd_path = ccd_path
+        self.uniclust_path = uniclust_path
+        self.msa_path = msa_path
+
+    def predict_dataloader(self) -> DataLoader:
+        """Get the training dataloader.
+
+        Returns
+        -------
+        DataLoader
+            The training dataloader.
+
+        """
+        dataset = MicPredictionDataset(
+            self.seqs,
+            self.ccd_path,
+            self.uniclust_path,
+            self.msa_path
         )
         return DataLoader(
             dataset,
