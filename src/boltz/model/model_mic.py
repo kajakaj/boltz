@@ -39,26 +39,6 @@ from boltz.model.modules.utils import ExponentialMovingAverage
 from boltz.model.optim.scheduler import AlphaFoldLRScheduler
 
 
-class Network(nn.Module):
-    def __init__(self, input_size, hidden_size):
-        super().__init__()
-        self.hidden_layer = nn.Linear(input_size, hidden_size)
-        self.output_layer = nn.Linear(hidden_size, 1)
-
-    def forward(self, x):
-        out = nn.ReLU()(self.hidden_layer(x))
-        out = self.output_layer(out)
-        return out
-
-mic_model_0 = Network(50*384, 40)
-mic_model_0.load_state_dict(torch.load("/home/asia/Documents/asia/mgr/mic_prediction/model_pairformer_0.pth"))
-
-# mic_model_1 = Network(50*50*128, 128)
-# mic_model_1.load_state_dict(torch.load("/home/asia/Documents/asia/mgr/mic_prediction/model_pairformer_1.pth"))
-
-mic_criterion = nn.L1Loss(reduction='sum')
-
-
 class Boltz1(LightningModule):
     def __init__(  # noqa: PLR0915, C901, PLR0912
         self,
