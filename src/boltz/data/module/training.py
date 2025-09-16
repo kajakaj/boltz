@@ -530,6 +530,11 @@ class BoltzTrainingDataModule(pl.LightningDataModule):
                     if all(f.filter(record) for f in data_config.filters)
                 ]
 
+            with open('seqs.csv', 'w') as csvfile:
+                for record in train_records+val_records:
+                    csvfile.write(record.id.lower() + '\n')
+            raise Exception
+
             # Create train dataset
             train_manifest = Manifest(train_records)
             train.append(
