@@ -90,6 +90,7 @@ def collate(data: list[dict[str, Tensor]]) -> dict[str, Tensor]:
             "amino_acids_symmetries",
             "ligand_symmetries",
             "record",
+            "structure",
         ]:
             # Check if all have the same shape
             shape = values[0].shape
@@ -290,6 +291,7 @@ class MicPredictionDataset(torch.utils.data.Dataset):
         )
         
         features["record"] = record
+        features["structure"] = structure
         return features
 
     def __len__(self) -> int:
@@ -462,6 +464,7 @@ class MicBoltzInferenceDataModule(pl.LightningDataModule):
                 "amino_acids_symmetries",
                 "ligand_symmetries",
                 "record",
+                "structure",
             ]:
                 batch[key] = batch[key].to(device)
         return batch

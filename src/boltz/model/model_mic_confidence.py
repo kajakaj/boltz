@@ -370,7 +370,10 @@ class Boltz1(LightningModule):
             )
         if self.confidence_prediction and self.confidence_module.use_s_diffusion:
             dict_out.pop("diff_token_repr", None)
-        return s, dict_out
+
+        dict_out["s"] = s
+        dict_out["z"] = z
+        return dict_out
 
     def get_true_coordinates(
         self,
