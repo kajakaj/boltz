@@ -207,7 +207,8 @@ class MicPredictionDataset(torch.utils.data.Dataset):
         seqs: list[str],
         ccd_path: Path,
         uniclust_path: Path,
-        msa_path: Optional[list[Path]] = None
+        msa_path: Optional[list[Path]] = None,
+        ccd = None
     ) -> None:
         super().__init__()
         self.seqs = seqs
@@ -215,8 +216,11 @@ class MicPredictionDataset(torch.utils.data.Dataset):
         self.msa_path = msa_path
         self.tokenizer = BoltzTokenizer()
         self.featurizer = BoltzFeaturizer()
-        with ccd_path.open("rb") as file:
-            self.ccd = pickle.load(file)  # noqa: S301
+        if not ccd:
+            with ccd_path.open("rb") as file:
+                self.ccd = pickle.load(file)  # noqa: S301
+        else:
+            self.ccd = ccd
 
     def __getitem__(self, idx: int) -> dict:
         """Get an item from the dataset.
@@ -391,7 +395,8 @@ class MicBoltzInferenceDataModule(pl.LightningDataModule):
         ccd_path: Path,
         uniclust_path: Path,
         num_workers: int,
-        msa_path: Optional[list[Path]] = None
+        msa_path: Optional[list[Path]] = None,
+        ccd = None
     ) -> None:
         """Initialize the DataModule.
 
@@ -407,6 +412,7 @@ class MicBoltzInferenceDataModule(pl.LightningDataModule):
         self.ccd_path = ccd_path
         self.uniclust_path = uniclust_path
         self.msa_path = msa_path
+        self.ccd = ccd
 
     def predict_dataloader(self) -> DataLoader:
         """Get the training dataloader.
@@ -421,7 +427,8 @@ class MicBoltzInferenceDataModule(pl.LightningDataModule):
             self.seqs,
             self.ccd_path,
             self.uniclust_path,
-            self.msa_path
+            self.msa_path,
+            self.ccd
         )
         return DataLoader(
             dataset,
